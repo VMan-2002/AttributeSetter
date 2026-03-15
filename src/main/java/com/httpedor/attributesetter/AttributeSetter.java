@@ -348,6 +348,10 @@ public class AttributeSetter implements ModInitializer {
                 AttributeSetterAPI.BASE_TAG_MODIFIERS.clear();
                 AttributeSetterAPI.ITEM_MODIFIERS.clear();
                 AttributeSetterAPI.TAG_ITEM_MODIFIERS.clear();
+                TrinketsCompat.ITEM_MODIFIERS.clear();
+                TrinketsCompat.TAG_ITEM_MODIFIERS.clear();
+                TrinketsCompat.BASE_ITEM_MODIFIERS.clear();
+                TrinketsCompat.BASE_TAG_ITEM_MODIFIERS.clear();
                 for (Map.Entry<Identifier, Resource> resEntry : manager.findResources("attributesetter/entity", path -> true).entrySet())
                 {
                     String fPath = resEntry.getKey().getPath();
