@@ -1,9 +1,13 @@
 package com.httpedor.attributesetter;
 
+import com.google.common.collect.Multimap;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.httpedor.attributesetter.compat.TrinketsCompat;
+
+import dev.emi.trinkets.TrinketsMain;
+import dev.emi.trinkets.api.SlotReference;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
@@ -19,8 +23,10 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.attribute.EntityAttribute;
 import net.minecraft.entity.attribute.EntityAttributeModifier;
 import net.minecraft.item.ArmorItem;
+import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryKeys;
@@ -32,6 +38,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.PlayerManager;
 import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
+
+import dev.emi.trinkets.TrinketsMain;
+import dev.emi.trinkets.TrinketsModifierMethod;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -88,7 +97,29 @@ public class AttributeSetter implements ModInitializer {
                         slot = EquipmentSlot.valueOf(slotStr.toUpperCase());
                 } catch (IllegalArgumentException e)
                 {
-                    System.out.println("Invalid slot: " + slotStr);
+                    System.out.println("treating as trinket slot: " + slotStr);
+                    
+                    if (opStr.equalsIgnoreCase("base"))
+                    {
+                        if (isTag)
+                            TrinketsCompat.registerTagItemBaseAttribute(id, attr, value, slotStr);
+                        else
+                            TrinketsCompat.registerItemBaseAttribute(id, attr, value, slotStr);
+                    }
+                    else
+                    {
+                        var op = EntityAttributeModifier.Operation.valueOf(opStr.toUpperCase());
+                        EntityAttributeModifier mod;
+                        if (modObj.has("uuid"))
+                            mod = new EntityAttributeModifier(UUID.fromString(modObj.get("uuid").getAsString()), "ASMod", value, op);
+                        else
+                            mod = new EntityAttributeModifier("ASMod", value, op);
+
+                        if (isTag)
+                            TrinketsCompat.registerTagItemAttributeModifier(id, attr, mod, slotStr);
+                        else
+                            TrinketsCompat.registerItemAttributeModifier(id, attr, mod, slotStr);
+                    }
                     continue;
                 }
                 if (attr == null)
@@ -355,6 +386,14 @@ public class AttributeSetter implements ModInitializer {
                     ServerPlayNetworking.send(player, PACKET_ID, buf);
             }
         });
+
+        if (FabricLoader.getInstance().isModLoaded("trinkets")) {
+            System.out.println("AttributeSetter Modified | trying to add callback function in Trinkets");
+            TrinketsMain.trinketsModifierCallbacks.add(AttributeSetter::mixinFunc);
+            System.out.println("AttributeSetter Modified | Done");
+        } else {
+            System.out.println("AttributeSetter Modified | cant find Trinkets");
+        }
     }
 
     private static PacketByteBuf createPacketBuf() {
@@ -372,5 +411,83 @@ public class AttributeSetter implements ModInitializer {
             buf.writeString(entry.getValue().toString());
         }
         return buf;
+    }
+
+    private static Multimap<EntityAttribute, EntityAttributeModifier> mixinFunc(Multimap<EntityAttribute, EntityAttributeModifier> map, ItemStack stack,
+			SlotReference slot, LivingEntity entity, UUID uuid) {
+        boringPrints("AttributeSetter Modified | Callback Function run");
+        // MY CODE
+        var id = Registries.ITEM.getId(stack.getItem());
+        var slotName = slot.inventory().getSlotType().getName();
+        boringPrints("AttributeSetter Modified | Item's slot name: "+slotName);
+        for (var entry : TrinketsCompat.BASE_TAG_ITEM_MODIFIERS.entrySet())
+        {
+            boringPrints("AttributeSetter Modified | BASE_TAG_ITEM_MODIFIERS Check for tag "+entry.getKey());
+            if (stack.isIn(TagKey.of(RegistryKeys.ITEM, entry.getKey()))
+                    && entry.getValue().containsKey(slotName))
+            {
+                boringPrints("AttributeSetter Modified | BASE_TAG_ITEM_MODIFIERS Tag match "+entry.getKey());
+                for (var modEntry : entry.getValue().get(slotName).entrySet())
+                {
+                    map.removeAll(modEntry.getKey());
+                    var val = modEntry.getValue();
+                    map.put(modEntry.getKey(), new EntityAttributeModifier(uuid, "ASMod", val, EntityAttributeModifier.Operation.ADDITION));
+                    boringPrints("AttributeSetter Modified | Applied a BASE_TAG_ITEM_MODIFIERS for Trinkets");
+                }
+            }
+        }
+        for (var entry : TrinketsCompat.BASE_ITEM_MODIFIERS.entrySet())
+        {
+            boringPrints("AttributeSetter Modified | BASE_ITEM_MODIFIERS Check for item "+stack.getName().getString());
+            if (entry.getKey().equals(id) && entry.getValue().containsKey(slotName))
+            {
+                boringPrints("AttributeSetter Modified | BASE_ITEM_MODIFIERS Item match "+stack.getName().getString());
+                for (var modEntry : entry.getValue().get(slotName).entrySet())
+                {
+                    map.removeAll(modEntry.getKey());
+                    var val = modEntry.getValue();
+                    map.put(modEntry.getKey(), new EntityAttributeModifier(uuid, "ASMod", val, EntityAttributeModifier.Operation.ADDITION));
+                    boringPrints("AttributeSetter Modified | Applied a BASE_ITEM_MODIFIERS for Trinkets");
+                }
+            }
+        }
+        for (var entry : TrinketsCompat.TAG_ITEM_MODIFIERS.entrySet())
+        {
+            boringPrints("AttributeSetter Modified | TAG_ITEM_MODIFIERS Check for tag "+entry.getKey());
+            if (stack.isIn(TagKey.of(RegistryKeys.ITEM, entry.getKey())) && entry.getValue().containsKey(slotName))
+            {
+                boringPrints("AttributeSetter Modified | TAG_ITEM_MODIFIERS Tag match "+entry.getKey());
+                for (var modEntry : entry.getValue().get(slotName).entrySet())
+                {
+                    var val = modEntry.getValue();
+                    var clone = new EntityAttributeModifier(uuid, val.getName(), val.getValue(), val.getOperation());
+                    map.put(modEntry.getKey(), clone);
+                    boringPrints("AttributeSetter Modified | Applied a TAG_ITEM_MODIFIERS for Trinkets");
+                }
+            }
+        }
+
+        var modifiers = TrinketsCompat.ITEM_MODIFIERS.getOrDefault(id, null);
+        if (modifiers != null)
+        {
+            boringPrints("AttributeSetter Modified | ITEM_MODIFIERS Check for item "+stack.getName().getString());
+            var slotMods = modifiers.getOrDefault(slotName, null);
+            if (slotMods != null)
+            {
+                boringPrints("AttributeSetter Modified | ITEM_MODIFIERS Item match "+stack.getName().getString());
+                for (var entry : slotMods.entrySet())
+                {
+                    var val = entry.getValue();
+                    var clone = new EntityAttributeModifier(uuid, val.getName(), val.getValue(), val.getOperation());
+                    map.put(entry.getKey(), clone);
+                    boringPrints("AttributeSetter Modified | Applied a ITEM_MODIFIERS for Trinkets");
+                }
+            }
+        }
+        return map;
+    }
+
+    public static void boringPrints(String s) {
+        //System.out.println(s);
     }
 }

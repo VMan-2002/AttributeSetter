@@ -58,16 +58,19 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
     modRuntimeOnly "maven.modrinth:lithium:mc1.20.1-0.11.2"
-    modRuntimeOnly "maven.modrinth:sodium:mc1.20.1-0.5.11"
+    //modRuntimeOnly "maven.modrinth:sodium:OihdIimA"
     modRuntimeOnly "maven.modrinth:modmenu:7.2.2"
-    modRuntimeOnly "curse.maven:cloth-config-348521:5729104"
-    modRuntimeOnly "curse.maven:architectury-api-419699:5137936"
-    modRuntimeOnly "curse.maven:artifacts-312353:6351710"
+    modRuntimeOnly "maven.modrinth:cloth-config:2xQdCMyG"
+    modRuntimeOnly "maven.modrinth:architectury-api:WbL7MStR"
+    modRuntimeOnly "maven.modrinth:elytra_trinket:rzIxotxo"
+    //modRuntimeOnly "maven.modrinth:artifacts:jf0yT7BF"
 
     // Fabric API. This is technically optional, but you probably want it anyway.
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-    modImplementation "dev.emi:trinkets:3.7.2"
+	modRuntimeOnly "dev.onyxstudios.cardinal-components-api:cardinal-components-base:${project.cca_version}"
+	modRuntimeOnly "dev.onyxstudios.cardinal-components-api:cardinal-components-entity:${project.cca_version}"
+    modImplementation files('libs/trinkets-3.7.2.jar')
 }
 
 processResources {
